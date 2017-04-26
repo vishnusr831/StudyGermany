@@ -6,12 +6,20 @@ import {routes} from './app.routes';
 import { AppComponent } from './app.component';
 import { AboutusComponent } from './aboutus/aboutus.component';
 import { ServicesComponent } from './services/services.component';
+import { HomeComponent } from './home/home.component';
+import { GuidelinesComponent } from './guidelines/guidelines.component';
+import { ContactusComponent } from './contactus/contactus.component';
+import { SearchComponent } from './search/search.component';
 
 @NgModule({
   declarations: [
     AppComponent,
     AboutusComponent,
-    ServicesComponent
+    ServicesComponent,
+    HomeComponent,
+    GuidelinesComponent,
+    ContactusComponent,
+    SearchComponent
   ],
   imports: [
     BrowserModule,
