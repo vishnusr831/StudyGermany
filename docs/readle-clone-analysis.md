@@ -18,7 +18,7 @@ Goal: a personal app for learning German by reading short graded stories, so we 
 ### Features behind the screens (from the store listing)
 
 - **Graded stories and news**, A1 to C1, about 5 minutes each. Topics include Travel, Culture, Food, History, Tech and News.
-- **Native-speaker audio** for every story.
+- **Native-speaker audio** for every story (we skip this).
 - **Tap a word to translate it**, and save it to your vocabulary.
 - **Grammar helpers** (about 170) linked from inside stories.
 - **A quiz per story** covering vocabulary, grammar and articles (der/die/das). You can retake it.
@@ -37,21 +37,20 @@ Goal: a personal app for learning German by reading short graded stories, so we 
    - German text split into sentences and tokens.
    - **Tap a word** to open a popup with its translation, base form (lemma), article and gender for nouns, plural, and a "Save to flashcards" button.
    - **Tap or long-press a sentence** to show its English translation.
-   - **Audio player** with play/pause, speed control (0.75× / 1× / 1.25×) and **sentence highlighting** that follows the audio.
    - Inline **grammar notes** (for example "Perfekt with *sein*", "Dativ after *mit*").
    - A "Mark as learned" button, which opens the quiz.
 4. **Quiz**: 5–8 questions per story: multiple-choice comprehension, vocabulary, and der/die/das.
 5. **Training tab**: spaced-repetition review of saved words (front: German word or sentence; back: translation plus example from the story). Shows a due-count badge.
 6. **My library**: saved stories, finished stories, all saved words (searchable, deletable), and simple stats such as streak and words learned.
-7. **Settings/Profile**: my level, native language (English), audio speed, dark/light theme, export/import of data as a backup.
+7. **Settings/Profile**: my level, native language (English), dark/light theme, export/import of data as a backup.
 
 ### Out of scope
 
-Payments and cart, rating banner, accounts and login (at least at first), push notifications, social features.
+Payments and cart, rating banner, accounts and login, push notifications, social features, **audio/voice** (not wanted), any server or internet dependency at runtime.
 
 ## 3. The real work is content, not code
 
-The UI is simple. The work is in **getting good graded German texts with translations, word glosses and audio**. We **cannot copy Readle's stories or news articles** (copyright), so we have to produce our own.
+The UI is simple. The work is in **getting good graded German texts with translations and word glosses**. We **cannot copy Readle's stories or news articles** (copyright), so we have to produce our own.
 
 ### Recommended pipeline (offline script, run once per batch)
 
@@ -59,19 +58,12 @@ The UI is simple. The work is in **getting good graded German texts with transla
 topic + level + type  ─► LLM generates story (CEFR-constrained)
                        ─► LLM/NLP adds: sentence translations, per-token lemma + gloss,
                           noun gender/plural, grammar notes, quiz questions
-                       ─► TTS generates audio + sentence timestamps
                        ─► validate (schema, level word-count, no missing glosses)
-                       ─► write stories/<id>.json + audio/<id>.mp3
+                       ─► write stories/<id>.json  (bundled into the APK)
 ```
 
 - **Text:** use an LLM (Claude via the API) with a strict JSON schema and level rules. For example, A1 means present tense and Perfekt only, about 120–200 words, and common vocabulary. C1 allows complex subordinate clauses and about 600+ words. News-style stories can be original write-ups about public events (facts aren't copyrighted), but should never be copies of articles.
 - **Word data:** let the LLM produce lemma, gloss and gender per token in the same pass. Optionally cross-check with **spaCy `de_core_news`** for lemma and part of speech, and with a **Wiktionary-derived dictionary** (for example the kaikki.org extracts) as a fallback lookup for any word the reader taps.
-- **Audio, three options:**
-  1. **Browser/OS text-to-speech (Web Speech API)**: free and needs zero setup. Android's German voices are decent. Sentence highlighting is easy because we speak sentence by sentence.
-  2. **Cloud neural TTS** (Azure, Google, ElevenLabs): much more natural. Free tiers likely cover a personal library; check current limits.
-  3. **Piper TTS** (open source, runs locally, has German voices): free, generated offline as MP3s.
-
-  **Recommendation:** start with option 1, then pre-generate MP3s with option 2 or 3 later.
 - **Images:** free stock photos (Unsplash or Pexels API, with attribution), or skip images and use topic emoji or colored gradients.
 - **Scale:** start with about **10 stories per level** (60 in total) plus 10 flash-fiction pieces. That's plenty to validate the app, and we can add more anytime with the script.
 
@@ -87,12 +79,10 @@ topic + level + type  ─► LLM generates story (CEFR-constrained)
   "titleEn": "Beijing's Secret Garden Is Now Open",
   "titleDe": "Pekings geheimer Garten ist jetzt offen",
   "image": "img/beijing.jpg",
-  "audio": "audio/beijing-secret-garden.mp3",   // optional
   "sentences": [
     {
       "de": "Die Verbotene Stadt ist ein besonderer Ort in China.",
       "en": "The Forbidden City is a special place in China.",
-      "audioStart": 0.0, "audioEnd": 3.2,
       "tokens": [
         { "t": "Die", "lemma": "die", "pos": "DET" },
         { "t": "Verbotene", "lemma": "verboten", "pos": "ADJ", "gloss": "forbidden" },
@@ -114,55 +104,56 @@ User data lives on the device (IndexedDB):
 
 - `progress`: story id → `{ learned, quizScore, lastReadAt }`
 - `cards`: saved words with SRS state (`due`, `stability`, `difficulty`, `reps`, `lapses`, plus source story and sentence)
-- `settings`: level, theme, audio speed
+- `settings`: level, theme
 
 **Spaced repetition:** use **FSRS** via the `ts-fsrs` npm package (the modern Anki algorithm), or a ~30-line SM-2 implementation if we want zero dependencies.
 
-## 5. Tech stack options
+## 5. Tech stack: runs fully offline on an Android phone
 
-The repo currently holds an **Angular 4 (2017) "Study in Germany" website** (home, search, about, contact pages). It isn't related to this app, and its toolchain is badly outdated. Angular CLI 1.0 / TypeScript 2.2 won't run on a current Node. We should either replace it or move it aside.
+Requirement: the app runs **locally on the phone**, with no server and no internet needed while using it.
 
-| Option | Pros | Cons |
-|---|---|---|
-| **A. PWA (React + Vite + TypeScript, or modern Angular)**, installable on the phone home screen | One codebase, free hosting (GitHub Pages, Netlify), works offline, fastest to build, no app store | Background audio and notifications are a bit weaker than native |
-| **B. Expo / React Native** | Real Android/iOS app, better audio and notifications | More setup; iOS sideloading needs a developer account |
-| **C. Flutter** | Polished native feel | New language (Dart), more work |
+**Chosen approach: a web app (React + Vite + TypeScript) packaged as an Android APK with Capacitor.**
 
-**Recommendation: A (PWA).** For a personal app it covers everything in the screenshot, it can be wrapped as an Android APK later with Capacitor, and the content pipeline (Node or Python script) can live in the same repo.
+- The UI is written as a normal web app. Capacitor wraps it into a real Android app (`.apk`) that we install (sideload) on the phone.
+- **All stories, images and the dictionary are bundled inside the APK.** Nothing is downloaded at runtime.
+- Progress, saved words and flashcards are stored on the phone (IndexedDB, or SQLite via a Capacitor plugin).
+- Stories are generated on a computer with the pipeline script. Adding new stories means rebuilding and reinstalling the APK. A later feature could import a story pack file from the phone's storage instead.
+- Building the APK needs Android Studio / the Android SDK on a computer, or a GitHub Actions workflow that builds the APK so you just download it.
 
-Suggested libraries: React Router, Tailwind (for the dark teal look), `idb` or Dexie (IndexedDB), `ts-fsrs`, `vite-plugin-pwa`.
+Alternative: Expo / React Native also produces a local APK, but needs more setup for the same result.
+
+Suggested libraries: React Router, Tailwind (for the dark teal look), Dexie (IndexedDB), `ts-fsrs`, `@capacitor/android`.
+
+### The old Angular code in this repo
+
+The repo currently contains a **"Study in Germany" website from 2017** (Angular 4). It has a home page with a course/city search box, plus About, Services, Guidelines and Contact pages that are routed but barely filled in. It was meant to give information to students who want to study in Germany. It has nothing to do with the reading app, and its tooling (Angular CLI 1.0, TypeScript 2.2) won't run on current Node versions. None of it is reusable.
 
 ## 6. Proposed repo layout
 
 ```
-/app            PWA frontend (Vite + React + TS)
-/content        generated story JSON, audio, images (served statically)
-/pipeline       story-generation scripts (LLM + TTS + validation)
+/app            React + Vite + TS frontend, wrapped by Capacitor (/app/android)
+/content        generated story JSON + images (bundled into the APK)
+/pipeline       story-generation scripts (LLM + validation), run on a computer
 /docs           this analysis
 ```
 
 ## 7. Build plan (milestones)
 
-1. **Skeleton**: new PWA project, dark theme, bottom tab navigation, 4 empty tabs.
+1. **Skeleton**: new project, dark theme, bottom tab navigation, 4 empty tabs. Capacitor set up and a first APK installed on the phone.
 2. **Discover + reader with hand-written sample data**: 3–4 stories in the JSON format, level chips, hide-learned toggle, tap-word popup, sentence translation.
-3. **Audio**: Web Speech TTS sentence by sentence, with highlighting and speed control.
-4. **Saving words + Training**: save from the popup, FSRS review screen, due badge.
-5. **Quiz + progress + My library**.
-6. **Content pipeline**: script that generates and validates stories, then a first batch of about 60 stories.
-7. **Polish**: offline caching, export/import backup, optional pre-generated neural audio, Android APK via Capacitor.
-
-Milestones 1–5 are a solid working app; milestone 6 is what makes it useful long-term.
+3. **Saving words + Training**: save from the popup, FSRS review screen, due badge.
+4. **Quiz + progress + My library**.
+5. **Content pipeline**: a script that generates and validates stories, then a first batch of about 60 stories bundled in.
+6. **Polish**: export/import backup, importing extra story packs from phone storage, APK built by GitHub Actions.
 
 ## 8. Rough costs
 
-- Hosting: **€0** (GitHub Pages or Netlify).
+- Running the app: **€0** (no server, no hosting).
 - Story generation: a few cents per story with an LLM API, so a library of a few hundred stories costs a few euros, one time.
-- Audio: €0 with device TTS or Piper. Cloud TTS free tiers likely cover a personal library.
 
-## 9. Decisions needed before we start
+## 9. Decisions still open
 
-1. **Platform:** PWA (recommended), or a native app (Expo or Flutter)?
-2. **Existing Angular code:** delete it, or keep it in a subfolder?
-3. **Content generation:** OK to use an LLM API (needs an API key, a few euros)? Or start with hand-written and curated texts?
-4. **Translation language:** English, as in Readle?
-5. **Audio quality:** is device TTS fine to start with?
+1. **Old Angular code:** delete it (recommended), or move it into a subfolder?
+2. **Content generation:** OK to use an LLM API (needs an API key, a few euros)? Or start with hand-written texts?
+3. **Translation language:** English, as in Readle?
+4. **APK building:** do you have a computer with Android Studio, or should a GitHub Actions workflow build the APK for you to download?
