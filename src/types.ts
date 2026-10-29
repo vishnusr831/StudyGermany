@@ -3,7 +3,8 @@ export const LEVELS: Level[] = ['A1', 'A2', 'B1', 'B2', 'C1'];
 
 export type Topic =
   | 'travel' | 'history' | 'food' | 'culture' | 'everyday'
-  | 'tech' | 'environment' | 'society' | 'fiction';
+  | 'tech' | 'environment' | 'society' | 'fiction'
+  | 'health' | 'sport' | 'science' | 'nature' | 'work';
 
 export type Gender = 'm' | 'f' | 'n';
 
