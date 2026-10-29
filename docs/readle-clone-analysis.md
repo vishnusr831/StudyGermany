@@ -108,52 +108,23 @@ User data lives on the device (IndexedDB):
 
 **Spaced repetition:** use **FSRS** via the `ts-fsrs` npm package (the modern Anki algorithm), or a ~30-line SM-2 implementation if we want zero dependencies.
 
-## 5. Tech stack: runs fully offline on an Android phone
+## 5. Decisions (taken)
 
-Requirement: the app runs **locally on the phone**, with no server and no internet needed while using it.
+- **Platform:** PWA installed on the Android phone from GitHub Pages; works fully offline after the first visit. No server, no accounts.
+- **Old Angular code:** deleted.
+- **Stories:** written by hand (by Claude) to start with: 9 stories across A1–C1 plus flash fiction, each with full word glossary, grammar notes and quiz.
+- **Translation language:** English.
+- **No audio/voice.**
 
-**Chosen approach: a web app (React + Vite + TypeScript) packaged as an Android APK with Capacitor.**
+## 6. Stack
 
-- The UI is written as a normal web app. Capacitor wraps it into a real Android app (`.apk`) that we install (sideload) on the phone.
-- **All stories, images and the dictionary are bundled inside the APK.** Nothing is downloaded at runtime.
-- Progress, saved words and flashcards are stored on the phone (IndexedDB, or SQLite via a Capacitor plugin).
-- Stories are generated on a computer with the pipeline script. Adding new stories means rebuilding and reinstalling the APK. A later feature could import a story pack file from the phone's storage instead.
-- Building the APK needs Android Studio / the Android SDK on a computer, or a GitHub Actions workflow that builds the APK so you just download it.
+React + Vite + TypeScript, `vite-plugin-pwa` (offline caching + install), localStorage for progress and flashcards,
+SM-2 spaced repetition. Stories are TypeScript files in `src/data/stories/`, bundled into the app. See the README for
+how to run, deploy and add stories.
 
-Alternative: Expo / React Native also produces a local APK, but needs more setup for the same result.
+## 7. Next ideas
 
-Suggested libraries: React Router, Tailwind (for the dark teal look), Dexie (IndexedDB), `ts-fsrs`, `@capacitor/android`.
-
-### The old Angular code in this repo
-
-The repo currently contains a **"Study in Germany" website from 2017** (Angular 4). It has a home page with a course/city search box, plus About, Services, Guidelines and Contact pages that are routed but barely filled in. It was meant to give information to students who want to study in Germany. It has nothing to do with the reading app, and its tooling (Angular CLI 1.0, TypeScript 2.2) won't run on current Node versions. None of it is reusable.
-
-## 6. Proposed repo layout
-
-```
-/app            React + Vite + TS frontend, wrapped by Capacitor (/app/android)
-/content        generated story JSON + images (bundled into the APK)
-/pipeline       story-generation scripts (LLM + validation), run on a computer
-/docs           this analysis
-```
-
-## 7. Build plan (milestones)
-
-1. **Skeleton**: new project, dark theme, bottom tab navigation, 4 empty tabs. Capacitor set up and a first APK installed on the phone.
-2. **Discover + reader with hand-written sample data**: 3–4 stories in the JSON format, level chips, hide-learned toggle, tap-word popup, sentence translation.
-3. **Saving words + Training**: save from the popup, FSRS review screen, due badge.
-4. **Quiz + progress + My library**.
-5. **Content pipeline**: a script that generates and validates stories, then a first batch of about 60 stories bundled in.
-6. **Polish**: export/import backup, importing extra story packs from phone storage, APK built by GitHub Actions.
-
-## 8. Rough costs
-
-- Running the app: **€0** (no server, no hosting).
-- Story generation: a few cents per story with an LLM API, so a library of a few hundred stories costs a few euros, one time.
-
-## 9. Decisions still open
-
-1. **Old Angular code:** delete it (recommended), or move it into a subfolder?
-2. **Content generation:** OK to use an LLM API (needs an API key, a few euros)? Or start with hand-written texts?
-3. **Translation language:** English, as in Readle?
-4. **APK building:** do you have a computer with Android Studio, or should a GitHub Actions workflow build the APK for you to download?
+- More stories (a generation script using an LLM could produce them in the same format).
+- Topic filter on the Discover page.
+- Reading streak / daily goal.
+- Article (der/die/das) drill mode in Training.
